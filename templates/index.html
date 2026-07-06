@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学解题助手 - Qwen2.5-VL</title>
+
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部标题栏 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">∑</span>
+                    <h1>数学解题助手</h1>
+                </div>
+                <p class="subtitle">基于 Qwen2.5-VL-72B-Instruct 多模态大模型</p>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- 左侧：输入区域 -->
+            <div class="input-panel">
+                <!-- 题目输入 -->
+                <section class="input-section">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">📝</span>
+                            题目内容
+                        </h2>
+                        <div class="latex-toolbar">
+                            <button class="toolbar-btn" onclick="insertLatex('\\frac{a}{b}')" title="分数">
+                                <span>⁄</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\sqrt{x}')" title="根号">
+                                <span>√</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('x^{n}')" title="幂">
+                                <span>xⁿ</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('x_{n}')" title="下标">
+                                <span>xₙ</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\int_{a}^{b}')" title="积分">
+                                <span>∫</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\sum_{i=1}^{n}')" title="求和">
+                                <span>Σ</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\lim_{x \\to }')" title="极限">
+                                <span>lim</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\begin{pmatrix}  \end{pmatrix}')" title="矩阵">
+                                <span>[]</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\theta')" title="角度">
+                                <span>θ</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\alpha')" title="alpha">
+                                <span>α</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\beta')" title="beta">
+                                <span>β</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\pi')" title="pi">
+                                <span>π</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea
+                            id="text-input"
+                            class="math-input"
+                            placeholder="请输入题目内容，支持 LaTeX 公式...&#10;&#10;例如：已知函数 $f(x) = x^2 + 2x + 1$，求 $f(x)$ 的最小值。&#10;&#10;提示：使用 $...$ 包裹行内公式，使用 $$...$$ 包裹块级公式"
+                            rows="8"
+                        ></textarea>
+                        <div class="input-preview" id="input-preview">
+                            <span class="preview-placeholder">公式预览区</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 图片上传区域 -->
+                <section class="input-section">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">🖼️</span>
+                            图片上传
+                            <span class="badge">最多3张</span>
+                        </h2>
+                    </div>
+
+                    <div class="image-upload-grid">
+                        <!-- 平面几何图 -->
+                        <div class="upload-card" id="card-geometry">
+                            <div class="upload-area" onclick="document.getElementById('image-geometry').click()">
+                                <input type="file" id="image-geometry" name="image_geometry"
+                                       accept="image/*" hidden onchange="handleImageUpload(this, 'geometry')">
+                                <div class="upload-placeholder" id="placeholder-geometry">
+                                    <div class="upload-icon">📐</div>
+                                    <span class="upload-label">平面几何图</span>
+                                    <span class="upload-hint">点击或拖拽上传</span>
+                                    <span class="upload-detail">三角形、圆、多边形等</span>
+                                </div>
+                                <div class="upload-preview" id="preview-geometry" style="display:none;">
+                                    <img id="img-geometry" src="" alt="平面几何图">
+                                    <button class="remove-btn" onclick="removeImage('geometry', event)">✕</button>
+                                </div>
+                            </div>
+                            <div class="upload-note">
+                                <label>备注（可选）：</label>
+                                <input type="text" id="note-geometry" placeholder="如：实线为已知边，虚线为辅助线">
+                            </div>
+                        </div>
+
+                        <!-- 平面直角坐标系图 -->
+                        <div class="upload-card" id="card-coordinate">
+                            <div class="upload-area" onclick="document.getElementById('image-coordinate').click()">
+                                <input type="file" id="image-coordinate" name="image_coordinate"
+                                       accept="image/*" hidden onchange="handleImageUpload(this, 'coordinate')">
+                                <div class="upload-placeholder" id="placeholder-coordinate">
+                                    <div class="upload-icon">📊</div>
+                                    <span class="upload-label">坐标系图</span>
+                                    <span class="upload-hint">点击或拖拽上传</span>
+                                    <span class="upload-detail">函数图像、坐标点等</span>
+                                </div>
+                                <div class="upload-preview" id="preview-coordinate" style="display:none;">
+                                    <img id="img-coordinate" src="" alt="坐标系图">
+                                    <button class="remove-btn" onclick="removeImage('coordinate', event)">✕</button>
+                                </div>
+                            </div>
+                            <div class="upload-note">
+                                <label>备注（可选）：</label>
+                                <input type="text" id="note-coordinate" placeholder="如：实线为原函数，虚线为导函数">
+                            </div>
+                        </div>
+
+                        <!-- 立体图 -->
+                        <div class="upload-card" id="card-3d">
+                            <div class="upload-area" onclick="document.getElementById('image-3d').click()">
+                                <input type="file" id="image-3d" name="image_3d"
+                                       accept="image/*" hidden onchange="handleImageUpload(this, '3d')">
+                                <div class="upload-placeholder" id="placeholder-3d">
+                                    <div class="upload-icon">🧊</div>
+                                    <span class="upload-label">立体图</span>
+                                    <span class="upload-hint">点击或拖拽上传</span>
+                                    <span class="upload-detail">立体几何、三视图等</span>
+                                </div>
+                                <div class="upload-preview" id="preview-3d" style="display:none;">
+                                    <img id="img-3d" src="" alt="立体图">
+                                    <button class="remove-btn" onclick="removeImage('3d', event)">✕</button>
+                                </div>
+                            </div>
+                            <div class="upload-note">
+                                <label>备注（可选）：</label>
+                                <input type="text" id="note-3d" placeholder="如：实线为可见棱，虚线为不可见棱">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 表格上传区域 -->
+                <section class="input-section">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">📋</span>
+                            表格数据
+                            <span class="badge">最多2张</span>
+                        </h2>
+                    </div>
+
+                    <div class="table-upload-grid">
+                        <div class="upload-card table-card" id="card-table1">
+                            <div class="upload-area" onclick="document.getElementById('table-1').click()">
+                                <input type="file" id="table-1" name="table_1"
+                                       accept="image/*,.csv,.xlsx,.xls" hidden onchange="handleTableUpload(this, 1)">
+                                <div class="upload-placeholder" id="placeholder-table1">
+                                    <div class="upload-icon">📑</div>
+                                    <span class="upload-label">表格 1</span>
+                                    <span class="upload-hint">支持图片/CSV/Excel</span>
+                                </div>
+                                <div class="upload-preview" id="preview-table1" style="display:none;">
+                                    <img id="img-table1" src="" alt="表格1">
+                                    <span class="file-name" id="filename-table1"></span>
+                                    <button class="remove-btn" onclick="removeTable(1, event)">✕</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="upload-card table-card" id="card-table2">
+                            <div class="upload-area" onclick="document.getElementById('table-2').click()">
+                                <input type="file" id="table-2" name="table_2"
+                                       accept="image/*,.csv,.xlsx,.xls" hidden onchange="handleTableUpload(this, 2)">
+                                <div class="upload-placeholder" id="placeholder-table2">
+                                    <div class="upload-icon">📑</div>
+                                    <span class="upload-label">表格 2</span>
+                                    <span class="upload-hint">支持图片/CSV/Excel</span>
+                                </div>
+                                <div class="upload-preview" id="preview-table2" style="display:none;">
+                                    <img id="img-table2" src="" alt="表格2">
+                                    <span class="file-name" id="filename-table2"></span>
+                                    <button class="remove-btn" onclick="removeTable(2, event)">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 备注框 -->
+                <section class="input-section">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">💡</span>
+                            备注信息
+                        </h2>
+                    </div>
+                    <textarea
+                        id="notes-input"
+                        class="math-input notes-input"
+                        placeholder="补充说明、已知条件、特殊要求等（支持 LaTeX 公式）&#10;&#10;例如：注意 $x > 0$，且 $n$ 为正整数"
+                        rows="4"
+                    ></textarea>
+                </section>
+
+                <!-- 提交按钮 -->
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="solve-btn" onclick="submitProblem()">
+                        <span class="btn-icon">🚀</span>
+                        开始解题
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearAll()">
+                        <span class="btn-icon">🗑️</span>
+                        清空全部
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧：解答区域 -->
+            <div class="output-panel">
+                <div class="output-header">
+                    <h2>
+                        <span class="section-icon">✨</span>
+                        解题过程
+                    </h2>
+                    <div class="output-actions">
+                        <button class="btn-icon-only" onclick="copySolution()" title="复制解答">📋</button>
+                        <button class="btn-icon-only" onclick="toggleFullscreen()" title="全屏">⛶</button>
+                    </div>
+                </div>
+
+                <div class="output-content" id="output-content">
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-icon">🎓</div>
+                        <h3>等待解题</h3>
+                        <p>在左侧输入题目内容，点击「开始解题」获取详细解答</p>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <span>📐</span> 支持平面几何、坐标系、立体几何图形分析
+                            </div>
+                            <div class="feature-item">
+                                <span>📊</span> 支持表格数据提取与计算
+                            </div>
+                            <div class="feature-item">
+                                <span>📝</span> LaTeX 公式实时预览
+                            </div>
+                            <div class="feature-item">
+                                <span>⚡</span> 流式输出，实时显示解题过程
+                            </div>
+                        </div>
+                    </div>
+                    <div class="solution-content" id="solution-content" style="display:none;">
+                        <!-- 解题内容将在这里渲染 -->
+                    </div>
+                    <div class="loading-indicator" id="loading-indicator" style="display:none;">
+                        <div class="loading-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <span>正在思考中...</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
