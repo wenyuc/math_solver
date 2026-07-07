@@ -12,7 +12,9 @@ const state = {
         2: null
     },
     isSolving: false,
-    rawSolution: ''
+    rawSolution: '',
+    chatHistory: [],
+    conversationHistory: []
 };
 
 // ============================================================
@@ -442,4 +444,301 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
     updatePreview();
+    loadChatHistory();
 });
+
+// ============================================================
+// 对话功能
+// ============================================================
+
+// 打开对话对话框
+function openChatDialog() {
+    const overlay = document.getElementById('chat-dialog-overlay');
+    overlay.classList.add('active');
+    renderChatMessages();
+    setTimeout(() => document.getElementById('chat-input').focus(), 300);
+}
+
+// 关闭对话对话框
+function closeChatDialog(event) {
+    if (!event || event.target === document.getElementById('chat-dialog-overlay')) {
+        document.getElementById('chat-dialog-overlay').classList.remove('active');
+    }
+}
+
+// 打开历史面板
+function openHistoryPanel() {
+    const overlay = document.getElementById('history-panel-overlay');
+    overlay.classList.add('active');
+    renderHistoryList();
+}
+
+// 关闭历史面板
+function closeHistoryPanel(event) {
+    if (!event || event.target === document.getElementById('history-panel-overlay')) {
+        document.getElementById('history-panel-overlay').classList.remove('active');
+    }
+}
+
+// 处理聊天输入框键盘事件
+function handleChatKeydown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendChatMessage();
+    }
+}
+
+// 发送聊天消息
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    // 添加用户消息到聊天历史
+    state.chatHistory.push({
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+    });
+    
+    // 清空输入框
+    input.value = '';
+    
+    // 渲染消息
+    renderChatMessages();
+    
+    // 显示加载状态
+    const messagesContainer = document.getElementById('chat-messages');
+    const loadingId = 'loading-' + Date.now();
+    messagesContainer.innerHTML += '<div class="chat-message system-message" id="' + loadingId + '"><div class="message-avatar">🤖</div><div class="message-content">思考中...</div></div>';
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    try {
+        // 构建对话上下文
+        const conversationContext = buildConversationContext();
+        
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: message,
+                solution: state.rawSolution,
+                conversation: conversationContext
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('请求失败');
+        }
+        
+        const data = await response.json();
+        
+        // 移除加载提示
+        var loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        
+        // 添加助手回复
+        state.chatHistory.push({
+            role: 'assistant',
+            content: data.response || '抱歉，我暂时无法回答这个问题。',
+            timestamp: new Date().toISOString()
+        });
+        
+        // 保存到对话历史
+        saveToConversationHistory(message, data.response);
+        
+        // 持久化保存
+        saveChatHistory();
+        
+        // 重新渲染
+        renderChatMessages();
+        
+    } catch (error) {
+        var loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        state.chatHistory.push({
+            role: 'assistant',
+            content: '抱歉，发生错误：' + error.message,
+            timestamp: new Date().toISOString()
+        });
+        renderChatMessages();
+    }
+}
+
+// 构建对话上下文（包含最近的几条消息）
+function buildConversationContext() {
+    var recentMessages = state.chatHistory.slice(-10);
+    return recentMessages.map(function(msg) {
+        return { role: msg.role, content: msg.content };
+    });
+}
+
+// 渲染聊天消息
+function renderChatMessages() {
+    var container = document.getElementById('chat-messages');
+    
+    if (state.chatHistory.length === 0) {
+        container.innerHTML = '<div class="chat-message system-message"><div class="message-content">你好！我是对你的解题助手。如果你对解答步骤有任何疑问，或者需要进一步的解释，请随时问我！</div></div>';
+        return;
+    }
+    
+    var html = '';
+    for (var i = 0; i < state.chatHistory.length; i++) {
+        var msg = state.chatHistory[i];
+        var isUser = msg.role === 'user';
+        var avatar = isUser ? '👤' : '🤖';
+        var messageClass = isUser ? 'user-message' : 'system-message';
+        
+        // 简单转义
+        var renderedContent = msg.content
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        
+        html += '<div class="chat-message ' + messageClass + '">';
+        html += '<div class="message-avatar">' + avatar + '</div>';
+        html += '<div class="message-content">' + renderedContent + '</div>';
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+    
+    // 渲染 KaTeX
+    try {
+        renderMathInElement(container, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false },
+                { left: '\\[', right: '\\]', display: true }
+            ],
+            throwOnError: false
+        });
+    } catch (e) {
+        console.warn('KaTeX render error:', e);
+    }
+    
+    // 滚动到底部
+    container.scrollTop = container.scrollHeight;
+}
+
+// 保存到对话历史
+function saveToConversationHistory(userMessage, assistantResponse) {
+    var preview = userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
+    state.conversationHistory.unshift({
+        id: Date.now(),
+        title: '关于解题的讨论',
+        preview: preview,
+        date: new Date().toLocaleString('zh-CN'),
+        messages: state.chatHistory.slice()
+    });
+    
+    // 限制历史记录数量
+    if (state.conversationHistory.length > 50) {
+        state.conversationHistory = state.conversationHistory.slice(0, 50);
+    }
+    
+    // 保存到 localStorage
+    localStorage.setItem('conversationHistory', JSON.stringify(state.conversationHistory));
+}
+
+// 保存聊天历史到 localStorage
+function saveChatHistory() {
+    localStorage.setItem('chatHistory', JSON.stringify(state.chatHistory));
+}
+
+// 从 localStorage 加载聊天历史
+function loadChatHistory() {
+    var saved = localStorage.getItem('chatHistory');
+    if (saved) {
+        try {
+            state.chatHistory = JSON.parse(saved);
+        } catch (e) {
+            console.error('Failed to load chat history:', e);
+        }
+    }
+    
+    var savedConv = localStorage.getItem('conversationHistory');
+    if (savedConv) {
+        try {
+            state.conversationHistory = JSON.parse(savedConv);
+        } catch (e) {
+            console.error('Failed to load conversation history:', e);
+        }
+    }
+}
+
+// 渲染历史记录列表
+function renderHistoryList() {
+    var container = document.getElementById('history-list');
+    
+    if (state.conversationHistory.length === 0) {
+        container.innerHTML = '<div class="empty-history"><div class="empty-history-icon">📜</div><p>暂无对话历史</p></div>';
+        return;
+    }
+    
+    var html = '';
+    for (var i = 0; i < state.conversationHistory.length; i++) {
+        var item = state.conversationHistory[i];
+        html += '<div class="history-item" onclick="loadConversation(' + item.id + ')">';
+        html += '<div class="history-item-title">' + item.title + '</div>';
+        html += '<div class="history-item-date">' + item.date + '</div>';
+        html += '<div class="history-item-preview">' + item.preview + '</div>';
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+}
+
+// 加载指定对话
+function loadConversation(id) {
+    var conversation = null;
+    for (var i = 0; i < state.conversationHistory.length; i++) {
+        if (state.conversationHistory[i].id === id) {
+            conversation = state.conversationHistory[i];
+            break;
+        }
+    }
+    
+    if (conversation) {
+        state.chatHistory = conversation.messages.slice();
+        saveChatHistory();
+        renderChatMessages();
+        closeHistoryPanel();
+        openChatDialog();
+    }
+}
+
+// 导出历史记录
+function exportHistory() {
+    if (state.conversationHistory.length === 0) {
+        alert('暂无可导出的历史记录');
+        return;
+    }
+    
+    var exportData = state.conversationHistory.map(function(item) {
+        return { title: item.title, date: item.date, messages: item.messages };
+    });
+    
+    var blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '对话历史_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// 清空历史记录
+function clearHistory() {
+    if (!confirm('确定要清空所有对话历史吗？此操作不可恢复。')) return;
+    
+    state.conversationHistory = [];
+    state.chatHistory = [];
+    localStorage.removeItem('conversationHistory');
+    localStorage.removeItem('chatHistory');
+    renderHistoryList();
+}

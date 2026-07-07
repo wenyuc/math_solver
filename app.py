@@ -258,6 +258,73 @@ def health():
     return jsonify({'status': 'ok'})
 
 
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    """处理对话请求"""
+    try:
+        data = request.get_json()
+        message = data.get('message', '')
+        solution = data.get('solution', '')
+        conversation = data.get('conversation', [])
+        
+        if not message.strip():
+            return jsonify({'error': '消息不能为空'}), 400
+        
+        # 构建系统提示词，包含当前解答内容作为上下文
+        system_prompt = """你是一位专业的数学解题助手。用户已经得到了一道数学题的解答过程，现在可能会有一些疑问需要你的帮助。
+
+请根据用户的提问和已有的解答内容，耐心、详细地解答用户的疑问。
+
+要求：
+1. 使用 LaTeX 公式格式输出所有数学表达式，使用 $...$ 表示行内公式，使用 $$...$$ 表示块级公式。
+2. 回答要通俗易懂，循序渐进。
+3. 如果用户对某一步骤有疑问，请详细解释该步骤的推导过程。
+4. 如有必要，可以提供额外的例题或解题技巧。
+5. 保持友好、鼓励的语气。"""
+        
+        # 构建对话历史
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+        
+        # 添加解答内容作为上下文（如果有）
+        if solution.strip():
+            messages.append({
+                "role": "system", 
+                "content": f"【当前题目的解答过程】\n{solution}"
+            })
+        
+        # 添加对话历史
+        for msg in conversation:
+            messages.append(msg)
+        
+        # 添加当前用户消息
+        messages.append({
+            "role": "user",
+            "content": message
+        })
+        
+        # 调用模型
+        client = OpenAI(
+            api_key=OPENAI_API_KEY,
+            base_url=OPENAI_BASE_URL
+        )
+        
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            max_tokens=2048,
+            temperature=0.7
+        )
+        
+        assistant_response = response.choices[0].message.content
+        
+        return jsonify({'response': assistant_response})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static/css', exist_ok=True)

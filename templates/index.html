@@ -26,6 +26,10 @@
                 </div>
                 <p class="subtitle">基于 Qwen2.5-VL-72B-Instruct 多模态大模型</p>
             </div>
+            <div class="header-actions">
+                <button class="btn-icon-only" onclick="openChatDialog()" title="对话讨论">💬</button>
+                <button class="btn-icon-only" onclick="openHistoryPanel()" title="对话历史">📜</button>
+            </div>
         </header>
 
         <main class="main-content">
@@ -290,6 +294,53 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- 对话对话框 -->
+    <div class="chat-dialog-overlay" id="chat-dialog-overlay" onclick="closeChatDialog(event)">
+        <div class="chat-dialog" onclick="event.stopPropagation()">
+            <div class="chat-dialog-header">
+                <h3>💬 解题讨论</h3>
+                <button class="btn-icon-only" onclick="closeChatDialog()" title="关闭">✕</button>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-message system-message">
+                    <div class="message-content">
+                        你好！我是对你的解题助手。如果你对解答步骤有任何疑问，或者需要进一步的解释，请随时问我！
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <textarea 
+                    id="chat-input" 
+                    class="chat-input" 
+                    placeholder="输入你的问题，例如：这一步是怎么推导出来的？"
+                    rows="2"
+                    onkeydown="handleChatKeydown(event)"
+                ></textarea>
+                <button class="btn btn-primary chat-send-btn" onclick="sendChatMessage()">
+                    <span>发送</span>
+                    <span class="btn-icon">📤</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对话历史面板 -->
+    <div class="history-panel-overlay" id="history-panel-overlay" onclick="closeHistoryPanel(event)">
+        <div class="history-panel" onclick="event.stopPropagation()">
+            <div class="history-panel-header">
+                <h3>📜 对话历史</h3>
+                <div class="history-actions">
+                    <button class="btn-icon-only" onclick="exportHistory()" title="导出历史">💾</button>
+                    <button class="btn-icon-only" onclick="clearHistory()" title="清空历史">🗑️</button>
+                    <button class="btn-icon-only" onclick="closeHistoryPanel()" title="关闭">✕</button>
+                </div>
+            </div>
+            <div class="history-list" id="history-list">
+                <!-- 历史记录将在这里动态生成 -->
+            </div>
+        </div>
     </div>
 
     <script src="/static/js/main.js"></script>
