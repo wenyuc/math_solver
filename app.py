@@ -18,15 +18,15 @@ load_dotenv(os.path.expanduser('~/.env'))
 load_dotenv()
 
 # 方式一：使用 DashScope（阿里云通义千问官方 API）
-USE_DASHSCOPE = True
-DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY")
+USE_DASHSCOPE = False
+DASHSCOPE_API_KEY = os.environ.get("Math_Solver_Ali_API_KEY")
 
 # 方式二：使用 OpenAI 兼容接口（如 vLLM / Ollama / 其他部署）
-USE_OPENAI_COMPAT = False
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "your-api-key-here")
-OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "http://localhost:8000/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "qwen2.5-VL-72B-Instruct")
-
+USE_OPENAI_COMPAT = True
+OPENAI_API_KEY = os.environ.get("Math_Solver_Ali_API_KEY")
+OPENAI_BASE_URL = os.environ.get("QWEN_OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3-vl-32b-thinking")
+#print(OPENAI_API_KEY, OPENAI_BASE_URL, MODEL_NAME)
 
 def build_system_prompt():
     """构建系统提示词"""
@@ -126,7 +126,7 @@ def call_dashscope_stream(system_prompt, user_text, images):
         ]
 
         response = MultiModalConversation.call(
-            model='qwen2.5-vl-72b-instruct',
+            model=MODEL_NAME,
             messages=messages,
             stream=True,
             incremental_output=True
@@ -262,4 +262,4 @@ if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static/css', exist_ok=True)
     os.makedirs('static/js', exist_ok=True)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
