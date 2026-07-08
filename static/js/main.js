@@ -349,10 +349,12 @@ async function submitProblem() {
 function renderSolution(text) {
     const container = document.getElementById('solution-content');
 
-    // 先用 marked 渲染 Markdown
+    // 先用 marked 渲染 Markdown，配置选项以保留 LaTeX 命令
     let html = marked.parse(text, {
         breaks: true,
-        gfm: true
+        gfm: true,
+        mangle: false,
+        headerIds: false
     });
 
     container.innerHTML = html;
