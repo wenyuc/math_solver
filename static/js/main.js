@@ -346,20 +346,64 @@ async function submitProblem() {
 // ============================================================
 // 渲染解答（Markdown + LaTeX）
 // ============================================================
+
+// 保护 LaTeX 公式不被 marked.js 破坏
+function protectLatex(text) {
+    const protectedBlocks = [];
+    const protectedInlines = [];
+    
+    // 保护块级公式 $$...$$
+    text = text.replace(/\$\$([\s\S]*?)\$\$/g, (match, latex) => {
+        const placeholder = `__PROTECTED_BLOCK_${protectedBlocks.length}__`;
+        protectedBlocks.push({ placeholder, latex: `$$${latex}$$` });
+        return placeholder;
+    });
+    
+    // 保护行内公式 $...$（简单匹配，不跨行）
+    text = text.replace(/\$([^$]+)\$/g, (match, latex) => {
+        const placeholder = `__PROTECTED_INLINE_${protectedInlines.length}__`;
+        protectedInlines.push({ placeholder, latex: `$${latex}$` });
+        return placeholder;
+    });
+    
+    return { text, protectedBlocks, protectedInlines };
+}
+
+// 恢复 LaTeX 公式
+function restoreLatex(html, protectedBlocks, protectedInlines) {
+    // 恢复块级公式
+    protectedBlocks.forEach(({ placeholder, latex }) => {
+        html = html.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), latex);
+    });
+    
+    // 恢复行内公式
+    protectedInlines.forEach(({ placeholder, latex }) => {
+        html = html.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), latex);
+    });
+    
+    return html;
+}
+
 function renderSolution(text) {
     const container = document.getElementById('solution-content');
 
-    // 先用 marked 渲染 Markdown，配置选项以保留 LaTeX 命令
-    let html = marked.parse(text, {
+    // 1. 保护 LaTeX 公式
+    const { text: protectedText, protectedBlocks, protectedInlines } = protectLatex(text);
+    
+    // 2. 用 marked 渲染 Markdown (此时 LaTeX 已被保护)
+    let html = marked.parse(protectedText, {
         breaks: true,
         gfm: true,
         mangle: false,
         headerIds: false
     });
-
+    
+    // 3. 恢复 LaTeX 公式
+    html = restoreLatex(html, protectedBlocks, protectedInlines);
+    
     container.innerHTML = html;
 
-    // 然后用 KaTeX 渲染 LaTeX
+    // 4. 用 KaTeX 渲染 LaTeX
     try {
         renderMathInElement(container, {
             delimiters: [
@@ -469,16 +513,60 @@ function renderLatexSolution() {
 <body>
     <div id="content"></div>
     <script>
+        // 保护 LaTeX 公式不被 marked.js 破坏
+        function protectLatex(text) {
+            const protectedBlocks = [];
+            const protectedInlines = [];
+            
+            text = text.replace(/\$\$([\s\S]*?)\$\$/g, (match, latex) => {
+                const placeholder = `__PROTECTED_BLOCK_${protectedBlocks.length}__`;
+                protectedBlocks.push({ placeholder, latex: `$$${latex}$$` });
+                return placeholder;
+            });
+            
+            text = text.replace(/\$([^$]+)\$/g, (match, latex) => {
+                const placeholder = `__PROTECTED_INLINE_${protectedInlines.length}__`;
+                protectedInlines.push({ placeholder, latex: `$${latex}$` });
+                return placeholder;
+            });
+            
+            return { text, protectedBlocks, protectedInlines };
+        }
+
+        // 恢复 LaTeX 公式
+        function restoreLatex(html, protectedBlocks, protectedInlines) {
+            protectedBlocks.forEach(({ placeholder, latex }) => {
+                html = html.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), latex);
+            });
+            
+            protectedInlines.forEach(({ placeholder, latex }) => {
+                html = html.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), latex);
+            });
+            
+            return html;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const rawSolution = ${JSON.stringify(state.rawSolution)};
             const contentDiv = document.getElementById('content');
-            contentDiv.innerHTML = marked.parse(rawSolution, { 
+            
+            // 1. 保护 LaTeX 公式
+            const { text: protectedText, protectedBlocks, protectedInlines } = protectLatex(rawSolution);
+            
+            // 2. 用 marked 渲染 Markdown
+            let html = marked.parse(protectedText, { 
                 breaks: true, 
                 gfm: true,
                 mangle: false,
                 headerIds: false
             });
             
+            // 3. 恢复 LaTeX 公式
+            html = restoreLatex(html, protectedBlocks, protectedInlines);
+            
+            contentDiv.innerHTML = html;
+            
+            // 4. 用 KaTeX 渲染 LaTeX
             renderMathInElement(contentDiv, {
                 delimiters: [
                     { left: '$$', right: '$$', display: true },
