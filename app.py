@@ -82,23 +82,23 @@ def get_mime_type(filename):
     return mime_map.get(ext, 'image/png')
 
 
-def call_model_stream(text_input, notes, images, image_descriptions):
+def call_model_stream(text_input, notes, images_data, image_descriptions):
     """
     流式调用模型
-    images: list of (file_storage, description) tuples
+    images_data: list of (base64_string, mime_type, description) tuples
     """
     system_prompt = build_system_prompt()
     user_text = build_user_prompt(text_input, notes, image_descriptions)
 
     if USE_DASHSCOPE:
-        yield from call_dashscope_stream(system_prompt, user_text, images)
+        yield from call_dashscope_stream(system_prompt, user_text, images_data)
     elif USE_OPENAI_COMPAT:
-        yield from call_openai_stream(system_prompt, user_text, images)
+        yield from call_openai_stream(system_prompt, user_text, images_data)
     else:
         yield "错误：未配置模型调用方式，请检查 app.py 配置。"
 
 
-def call_dashscope_stream(system_prompt, user_text, images):
+def call_dashscope_stream(system_prompt, user_text, images_data):
     """通过 DashScope API 调用 qwen2.5-VL"""
     try:
         import dashscope
@@ -109,10 +109,8 @@ def call_dashscope_stream(system_prompt, user_text, images):
         # 构建消息内容
         user_content = []
 
-        # 添加图片
-        for img_data, desc in images:
-            b64 = encode_image_to_base64(img_data)
-            mime = get_mime_type(img_data.filename)
+        # 添加图片 (images_data 已经是 base64 编码后的数据)
+        for b64, mime, desc in images_data:
             user_content.append({
                 "image": f"data:{mime};base64,{b64}"
             })
@@ -143,14 +141,14 @@ def call_dashscope_stream(system_prompt, user_text, images):
                     elif isinstance(content, str):
                         yield content
             else:
-                yield f"\n\n[错误] DashScope API 返回错误: {chunk.message}"
+                yield f"\n\n[错误] DashScope API 返回错误：{chunk.message}"
                 break
 
     except Exception as e:
-        yield f"\n\n[错误] 调用 DashScope API 失败: {str(e)}"
+        yield f"\n\n[错误] 调用 DashScope API 失败：{str(e)}"
 
 
-def call_openai_stream(system_prompt, user_text, images):
+def call_openai_stream(system_prompt, user_text, images_data):
     """通过 OpenAI 兼容接口调用"""
     try:
         client = OpenAI(
@@ -161,10 +159,8 @@ def call_openai_stream(system_prompt, user_text, images):
         # 构建消息内容
         user_content = []
 
-        # 添加图片
-        for img_data, desc in images:
-            b64 = encode_image_to_base64(img_data)
-            mime = get_mime_type(img_data.filename)
+        # 添加图片 (images_data 已经是 base64 编码后的数据)
+        for b64, mime, desc in images_data:
             user_content.append({
                 "type": "image_url",
                 "image_url": {
@@ -196,7 +192,7 @@ def call_openai_stream(system_prompt, user_text, images):
                 yield chunk.choices[0].delta.content
 
     except Exception as e:
-        yield f"\n\n[错误] 调用 OpenAI 兼容接口失败: {str(e)}"
+        yield f"\n\n[错误] 调用 OpenAI 兼容接口失败：{str(e)}"
 
 
 # ============================================================
@@ -214,8 +210,8 @@ def solve():
     text_input = request.form.get('text_input', '')
     notes = request.form.get('notes', '')
 
-    # 收集图片（最多3张）
-    images = []
+    # 收集图片（最多 3 张）- 先编码为 base64，避免文件关闭后无法读取
+    images_data = []  # list of (base64_string, mime_type, description)
     image_descriptions = []
 
     img_types = [
@@ -228,23 +224,27 @@ def solve():
         if field_name in request.files:
             file = request.files[field_name]
             if file and file.filename:
-                images.append((file, type_desc))
-                image_descriptions.append(f"{type_desc}（文件名: {file.filename}）")
+                b64 = encode_image_to_base64(file)
+                mime = get_mime_type(file.filename)
+                images_data.append((b64, mime, type_desc))
+                image_descriptions.append(f"{type_desc}（文件名：{file.filename}）")
 
-    # 收集表格（最多2张）
+    # 收集表格（最多 2 张）
     for i in range(1, 3):
         field_name = f'table_{i}'
         if field_name in request.files:
             file = request.files[field_name]
             if file and file.filename:
-                images.append((file, f'表格{i}'))
-                image_descriptions.append(f"表格{i}（文件名: {file.filename}）")
+                b64 = encode_image_to_base64(file)
+                mime = get_mime_type(file.filename)
+                images_data.append((b64, mime, f'表格{i}'))
+                image_descriptions.append(f"表格{i}（文件名：{file.filename}）")
 
-    if not text_input.strip() and not images:
+    if not text_input.strip() and not images_data:
         return jsonify({'error': '请至少输入题目内容或上传图片'}), 400
 
     return Response(
-        call_model_stream(text_input, notes, images, image_descriptions),
+        call_model_stream(text_input, notes, images_data, image_descriptions),
         mimetype='text/event-stream',
         headers={
             'Cache-Control': 'no-cache',
