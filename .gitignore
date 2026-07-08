@@ -1,17 +1,4 @@
 ```
 # Build artifacts
-*.js.map
-*.min.js
-*.bundle.js
-dist/
-build/
-out/
-# Dependencies
-node_modules/
-# Logs and temp files
-*.log
-*.tmp
-# Editors
-.vscode/
-.idea/
+static/js/main.js
 ```

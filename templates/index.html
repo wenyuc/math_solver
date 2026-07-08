@@ -12,6 +12,13 @@
 
     <!-- Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script>
+        // 配置 marked 选项，禁用对反斜杠的转义，保留 LaTeX 命令
+        marked.setOptions({
+            mangle: false,
+            headerIds: false
+        });
+    </script>
 
     <link rel="stylesheet" href="/static/css/style.css">
 </head>

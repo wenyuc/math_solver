@@ -435,6 +435,13 @@ function renderLatexSolution() {
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script>
+        // 配置 marked 选项，禁用对反斜杠的转义，保留 LaTeX 命令
+        marked.setOptions({
+            mangle: false,
+            headerIds: false
+        });
+    </script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
@@ -463,7 +470,12 @@ function renderLatexSolution() {
         document.addEventListener('DOMContentLoaded', function() {
             const rawSolution = ${JSON.stringify(state.rawSolution)};
             const contentDiv = document.getElementById('content');
-            contentDiv.innerHTML = marked.parse(rawSolution, { breaks: true, gfm: true });
+            contentDiv.innerHTML = marked.parse(rawSolution, { 
+                breaks: true, 
+                gfm: true,
+                mangle: false,
+                headerIds: false
+            });
             
             renderMathInElement(contentDiv, {
                 delimiters: [
