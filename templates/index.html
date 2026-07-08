@@ -79,6 +79,27 @@
                             <button class="toolbar-btn" onclick="insertLatex('\\pi')" title="pi">
                                 <span>π</span>
                             </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\gamma')" title="gamma">
+                                <span>γ</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\sigma')" title="sigma">
+                                <span>σ</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\delta')" title="delta">
+                                <span>δ</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('^\\circ')" title="度数">
+                                <span>°</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\triangle')" title="三角形">
+                                <span>△</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\perp')" title="垂直">
+                                <span>⊥</span>
+                            </button>
+                            <button class="toolbar-btn" onclick="insertLatex('\\angle')" title="角度符号">
+                                <span>∠</span>
+                            </button>
                         </div>
                     </div>
                     <div class="input-wrapper">
@@ -284,6 +305,15 @@
                     </div>
                     <div class="solution-content" id="solution-content" style="display:none;">
                         <!-- 解题内容将在这里渲染 -->
+                    </div>
+                    <div class="solution-meta" id="solution-meta" style="display:none;">
+                        <div class="meta-info">
+                            <span class="meta-item"><strong>解题时间：</strong><span id="solve-time">0.0s</span></span>
+                            <span class="meta-item"><strong>Token 数量：</strong><span id="token-count">0</span></span>
+                        </div>
+                        <button class="btn-render-latex" onclick="renderLatexSolution()" title="渲染 LaTeX 格式">
+                            📐 渲染 LaTeX
+                        </button>
                     </div>
                     <div class="loading-indicator" id="loading-indicator" style="display:none;">
                         <div class="loading-dots">

@@ -14,7 +14,9 @@ const state = {
     isSolving: false,
     rawSolution: '',
     chatHistory: [],
-    conversationHistory: []
+    conversationHistory: [],
+    solveStartTime: null,
+    tokenCount: 0
 };
 
 // ============================================================
@@ -280,6 +282,8 @@ async function submitProblem() {
     // UI 状态更新
     state.isSolving = true;
     state.rawSolution = '';
+    state.solveStartTime = Date.now();
+    state.tokenCount = 0;
 
     const solveBtn = document.getElementById('solve-btn');
     solveBtn.disabled = true;
@@ -289,6 +293,7 @@ async function submitProblem() {
     document.getElementById('solution-content').style.display = 'block';
     document.getElementById('solution-content').innerHTML = '';
     document.getElementById('loading-indicator').style.display = 'flex';
+    document.getElementById('solution-meta').style.display = 'none';
 
     try {
         const response = await fetch('/api/solve', {
@@ -313,13 +318,16 @@ async function submitProblem() {
 
             const chunk = decoder.decode(value, { stream: true });
             state.rawSolution += chunk;
+            state.tokenCount += estimateTokenCount(chunk);
 
             // 渲染 Markdown + LaTeX
             renderSolution(state.rawSolution);
+            updateSolutionMeta();
         }
 
         // 最终渲染
         renderSolution(state.rawSolution);
+        updateSolutionMeta();
 
     } catch (error) {
         document.getElementById('loading-indicator').style.display = 'none';
@@ -368,6 +376,111 @@ function renderSolution(text) {
     // 自动滚动到底部
     const outputContent = document.getElementById('output-content');
     outputContent.scrollTop = outputContent.scrollHeight;
+}
+
+// ============================================================
+// 更新解题元信息（时间、Token 数量）
+// ============================================================
+function updateSolutionMeta() {
+    const metaDiv = document.getElementById('solution-meta');
+    const timeSpan = document.getElementById('solve-time');
+    const tokenSpan = document.getElementById('token-count');
+
+    if (!metaDiv || !timeSpan || !tokenSpan) return;
+
+    // 显示元信息区域
+    metaDiv.style.display = 'block';
+
+    // 计算解题时间
+    if (state.solveStartTime) {
+        const elapsed = ((Date.now() - state.solveStartTime) / 1000).toFixed(1);
+        timeSpan.textContent = elapsed + 's';
+    }
+
+    // 显示 Token 数量
+    tokenSpan.textContent = state.tokenCount.toLocaleString();
+}
+
+// ============================================================
+// 估算 Token 数量（简单按字符数估算）
+// ============================================================
+function estimateTokenCount(text) {
+    // 粗略估算：英文约 4 字符 1 token，中文约 1.5 字符 1 token
+    const englishChars = (text.match(/[a-zA-Z0-9\s]/g) || []).length;
+    const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+    return Math.ceil(englishChars / 4 + chineseChars / 1.5);
+}
+
+// ============================================================
+// 渲染 LaTeX 解答
+// ============================================================
+function renderLatexSolution() {
+    if (!state.rawSolution) {
+        alert('暂无解答内容可渲染');
+        return;
+    }
+
+    // 创建新窗口
+    const printWindow = window.open('', '_blank');
+    
+    // 构建完整的 HTML 文档
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>解题过程 - LaTeX 渲染</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.8;
+            color: #1e293b;
+        }
+        h1, h2, h3 { color: #1e293b; margin: 24px 0 12px; }
+        h1 { font-size: 28px; }
+        h2 { font-size: 22px; }
+        h3 { font-size: 18px; }
+        p { margin: 12px 0; }
+        ul, ol { padding-left: 24px; margin: 12px 0; }
+        li { margin: 6px 0; }
+        .katex-display { margin: 20px 0; overflow-x: auto; overflow-y: hidden; }
+        @media print {
+            body { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="content"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const rawSolution = ${JSON.stringify(state.rawSolution)};
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = marked.parse(rawSolution, { breaks: true, gfm: true });
+            
+            renderMathInElement(contentDiv, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\\\(', right: '\\\\)', display: false },
+                    { left: '\\\\[', right: '\\\\]', display: true }
+                ],
+                throwOnError: false
+            });
+        });
+    <\/script>
+</body>
+</html>`;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
 }
 
 // ============================================================
