@@ -1,1 +1,17 @@
-Nothing should be ignored based on the provided file changes. The only modified file is 'app.py', which is a source code file and should not be added to .gitignore.
+```
+# Build artifacts
+*.js.map
+*.min.js
+*.bundle.js
+dist/
+build/
+out/
+# Dependencies
+node_modules/
+# Logs and temp files
+*.log
+*.tmp
+# Editors
+.vscode/
+.idea/
+```
