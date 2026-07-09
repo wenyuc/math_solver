@@ -412,100 +412,101 @@ function estimateTokenCount(text) {
 }
 
 // ============================================================
-// 渲染 LaTeX 解答
-// ============================================================
-function renderLatexSolution() {
-    if (!state.rawSolution) {
-        alert('暂无解答内容可渲染');
-        return;
-    }
-
-    // 创建新窗口
-    const printWindow = window.open('', '_blank');
-    
-    // 构建完整的 HTML 文档
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>解题过程 - LaTeX 渲染</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            line-height: 1.8;
-            color: #1e293b;
-        }
-        h1, h2, h3 { color: #1e293b; margin: 24px 0 12px; }
-        h1 { font-size: 28px; }
-        h2 { font-size: 22px; }
-        h3 { font-size: 18px; }
-        p { margin: 12px 0; }
-        ul, ol { padding-left: 24px; margin: 12px 0; }
-        li { margin: 6px 0; }
-        .katex-display { margin: 20px 0; overflow-x: auto; overflow-y: hidden; }
-        @media print {
-            body { padding: 20px; }
-        }
-    </style>
-</head>
-<body>
-    <div id="content"></div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const rawSolution = ${JSON.stringify(state.rawSolution)};
-            const contentDiv = document.getElementById('content');
-            contentDiv.innerHTML = marked.parse(rawSolution, { breaks: true, gfm: true });
-            
-            renderMathInElement(contentDiv, {
-                delimiters: [
-                    { left: '$$', right: '$$', display: true },
-                    { left: '$', right: '$', display: false },
-                    { left: '\\\\(', right: '\\\\)', display: false },
-                    { left: '\\\\[', right: '\\\\]', display: true }
-                ],
-                throwOnError: false
-            });
-        });
-    <\/script>
-</body>
-</html>`;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-}
-
-// ============================================================
 // 工具函数
 // ============================================================
-function copySolution() {
+async function copySolution() {
     if (!state.rawSolution) {
         alert('暂无解答内容可复制');
         return;
     }
 
-    navigator.clipboard.writeText(state.rawSolution).then(() => {
-        // 简单的提示
-        const btn = event.target;
-        const original = btn.textContent;
-        btn.textContent = '✅';
-        setTimeout(() => { btn.textContent = original; }, 1500);
-    }).catch(() => {
-        // fallback
-        const textarea = document.createElement('textarea');
-        textarea.value = state.rawSolution;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
+    // 收集所有需要保存的数据
+    const problemData = {
+        // 题目内容
+        text_input: document.getElementById('text-input').value.trim(),
+        // 备注信息
+        notes: document.getElementById('notes-input').value.trim(),
+        // 图片及备注
+        images: {},
+        // 表格
+        tables: {},
+        // 解答过程
+        solution: state.rawSolution,
+        // 解题时间
+        solve_time: document.getElementById('solve-time').textContent,
+        // Token 数量
+        token_count: document.getElementById('token-count').textContent,
+        // 保存时间
+        saved_at: new Date().toISOString()
+    };
+
+    // 收集图片信息（包括 base64 数据和备注）
+    for (const type of ['geometry', 'coordinate', '3d']) {
+        const imgFile = state.images[type];
+        const note = document.getElementById(`note-${type}`).value.trim();
+        const typeNames = { geometry: '平面几何图', coordinate: '坐标系图', '3d': '立体图' };
+        
+        if (imgFile) {
+            const base64 = await fileToBase64(imgFile);
+            problemData.images[type] = {
+                name: typeNames[type],
+                filename: imgFile.name,
+                type: imgFile.type,
+                size: imgFile.size,
+                note: note,
+                data: base64
+            };
+        } else if (note) {
+            // 即使没有图片，如果有备注也保存
+            problemData.images[type] = {
+                name: typeNames[type],
+                note: note,
+                data: null
+            };
+        }
+    }
+
+    // 收集表格信息
+    for (const index of [1, 2]) {
+        const tableFile = state.tables[index];
+        if (tableFile) {
+            const base64 = await fileToBase64(tableFile);
+            problemData.tables[`table_${index}`] = {
+                filename: tableFile.name,
+                type: tableFile.type,
+                size: tableFile.size,
+                data: base64
+            };
+        }
+    }
+
+    // 创建 JSON 文件并下载
+    const jsonString = JSON.stringify(problemData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `数学题解答_${new Date().getTime()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // 显示成功提示
+    const btn = event.target;
+    const original = btn.textContent;
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+}
+
+// 辅助函数：将 File 转换为 Base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
     });
 }
 
